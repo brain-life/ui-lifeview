@@ -43,6 +43,7 @@ var LifeView = {
             
             //camera
             var camera = new THREE.PerspectiveCamera( 45, view.width() / view.height(), 1, 5000);
+            camera.position.z = 200;
             
             //resize view
             function resized() {
@@ -53,7 +54,7 @@ var LifeView = {
             $(window).on('resize', resized);
             view.on('resize', resized);
             
-            load_tract(config.get_json_file, function(err, mesh, res) {
+            load_tract(config.get_json_file, config.skip, function(err, mesh, res) {
                 scene.add(mesh);
             });
             // for(var i = 1;i <= config.num_tracts;++i) {
@@ -98,7 +99,7 @@ var LifeView = {
             animate_viewer();
         }
         
-        function load_tract(path, cb) {
+        function load_tract(path, skip, cb) {
             //console.log("loading tract "+path);
             //$scope.loading = true;
             $.get(path, res => {
@@ -106,15 +107,32 @@ var LifeView = {
                 var color = [1, 1, 1];//res.color;
                 var bundle = res.coords;
 
-                var threads_pos = [];
+                // var threads_pos = [];
+                var am = 0;
+                var col = new THREE.Color(.7, .7, .7);
+                
+                var buckets = [], categories = 100;
+                for (var i = 0; i < categories; i++) {
+                    buckets.push(new THREE.LineBasicMaterial({
+                        color: col,
+                        transparent: true,
+                        opacity: ((i + 1) / categories + 1) / 2
+                    }));
+                }
+                
                 //bundle = [bundle[0]];
                 bundle.forEach(function(tract) {
+                    if ((++am) % skip != 0)
+                        return;
                     if (tract[0] instanceof Array)
                         tract = tract[0];
+                    
+                    var threads_pos = [];
+                    
                     var xs = tract[0];
                     var ys = tract[1];
                     var zs = tract[2];
-
+                    
                     for(var i = 1;i < xs.length;++i) {
                         threads_pos.push(xs[i-1]);
                         threads_pos.push(ys[i-1]);
@@ -123,24 +141,37 @@ var LifeView = {
                         threads_pos.push(ys[i]);
                         threads_pos.push(zs[i]);
                     }
+                    
+                    var verts = new Float32Array(threads_pos);
+                    var geometry = new THREE.BufferGeometry();
+                    
+                    geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
+                    
+                    // TODO: Use buckets[Math.floor(weight * categories)] instead of buckets[0]
+                    var mesh = new THREE.LineSegments( geometry, buckets[0] );
+                    mesh.rotation.x = -Math.PI/2;
+                    
+                    cb(null, mesh, res);
                 });
+                console.log("AMOUNT: " + am);
 
-                //now show bundle
-                var vertices = new Float32Array(threads_pos);
-                var geometry = new THREE.BufferGeometry();
-                geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3 ) );
-                var material = new THREE.LineBasicMaterial( {
-                    color: new THREE.Color(color[0], color[1], color[2]),
-                    transparent: true,
-                    opacity: 0.7,
-                } );
-                var mesh = new THREE.LineSegments( geometry, material );
-                mesh.rotation.x = -Math.PI/2;
+                // now show bundle
+                // var vertices = new Float32Array(threads_pos);
+                // var geometry = new THREE.BufferGeometry();
+                // geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3 ) );
+                // var material = new THREE.LineBasicMaterial( {
+                //     color: new THREE.Color(Math.random(), Math.random(), Math.random()),
+                //     transparent: true,
+                //     opacity: 0.7,
+                // } );
+                // var mesh = new THREE.LineSegments( geometry, material );
+                // mesh.rotation.x = -Math.PI/2;
+                
                 //temporarly hack to fit fascicles inside
                 //mesh.position.z = -20;
                 //mesh.position.y = -20;
 
-                cb(null, mesh, res);
+                // cb(null, mesh, res);
             });
         }
         
