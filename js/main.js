@@ -13,7 +13,7 @@ $(function() {
         // to be set later
         num_fibers: 0,
         tracts: {},     // toggle on/off fascicles
-        debug: false,
+        debug: true,
     };
     
     if (!config.jwt)
@@ -25,11 +25,11 @@ $(function() {
         subdir = url.searchParams.get('sdir');
 
     var task = null;
-
+    
     if(config.debug) {
-        task_id = "59651c4ea7d3861d94eec67e";
+        task_id = "593ed77da3d8892967678d74";
         //subdir = "output";
-        config.wf_api = "https://dev1.soichi.us/api/wf";
+        config.wf_api = "https://brainlife.duckdns.org/api/wf";
     }
     
     $.ajax({
@@ -40,23 +40,21 @@ $(function() {
         },
         success: data => {
             task = data.tasks[0];
-            init_tractview();
+            init_lifeview();
         },
     });
+    init_lifeview();
     
-    function init_tractview() {
+    function init_lifeview() {
         var base = task.instance_id + '/' + task._id;
         if (subdir) base += '/' + subdir;
         
-        TractView.init({
-            selector: '#tractview',
-            num_tracts: config.num_tracts,
-            preview_scene_path: 'models/brain.json',
-            
-            get_json_file: tractNumber => config.wf_api+"/resource/download?r="+
-                                           task.resource_id+"&p="+
-                                           encodeURIComponent(base+"/tracts/"+tractNumber+".json")+
-                                           "&at="+config.jwt
+        LifeView.init({
+            selector: '#lifeview',
+            get_json_file: config.wf_api+"/resource/download?r="+
+                           task.resource_id+"&p="+
+                           encodeURIComponent(base+"/subsampledtracts.json")+
+                           "&at="+config.jwt
         });
     }
 });
