@@ -101,9 +101,9 @@ var LifeView = {
                 
                 for (var i = 0; i < categories; i++) {
                     buckets.push(new THREE.LineBasicMaterial({
-                        color: col,
+                        color: new THREE.Color(Math.random(), Math.random(), Math.random()),
                         transparent: true,
-                        opacity: ((i + 1) / categories + 1) / 2
+                        opacity: .7//((i + 1) / categories + 1) / 2
                     }));
                 }
                 
