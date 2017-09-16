@@ -54,7 +54,7 @@ var LifeView = {
             $(window).on('resize', resized);
             view.on('resize', resized);
             
-            load_tract(config, config.skip || 1, function(err, mesh, res) {
+            load_tract(config, function(err, mesh, res) {
                 scene.add(mesh);
             });
             
