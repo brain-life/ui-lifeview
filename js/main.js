@@ -48,6 +48,7 @@ $(function() {
         LifeView.init({
             selector: '#lifeview',
             skip: 1,
+            bucket_categories: 100,
             get_json_file: "https://brainlife.duckdns.org/files/subsampledtracts.json"/*config.wf_api+"/resource/download?r="+
                            task.resource_id+"&p="+
                            encodeURIComponent(base+"/life_results.json")+

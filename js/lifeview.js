@@ -97,7 +97,7 @@ var LifeView = {
                 var am = 0;
                 var col = new THREE.Color(.7, .7, .7);
                 
-                var buckets = [], categories = 100, verts = [];
+                var buckets = [], categories = config.bucket_categories || 100, verts = [];
                 
                 for (var i = 0; i < categories; i++) {
                     buckets.push(new THREE.LineBasicMaterial({
@@ -149,23 +149,6 @@ var LifeView = {
                     }
                 });
                 
-                // now show bundle
-                // var vertices = new Float32Array(threads_pos);
-                // var geometry = new THREE.BufferGeometry();
-                // geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3 ) );
-                // var material = new THREE.LineBasicMaterial( {
-                //     color: new THREE.Color(Math.random(), Math.random(), Math.random()),
-                //     transparent: true,
-                //     opacity: 0.7,
-                // } );
-                // var mesh = new THREE.LineSegments( geometry, material );
-                // mesh.rotation.x = -Math.PI/2;
-                
-                //temporarly hack to fit fascicles inside
-                //mesh.position.z = -20;
-                //mesh.position.y = -20;
-
-                // cb(null, mesh, res);
             });
         }
         
