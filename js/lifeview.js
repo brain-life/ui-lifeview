@@ -54,23 +54,9 @@ var LifeView = {
             $(window).on('resize', resized);
             view.on('resize', resized);
             
-            load_tract(config.get_json_file, config.skip, function(err, mesh, res) {
+            load_tract(config, config.skip || 1, function(err, mesh, res) {
                 scene.add(mesh);
             });
-            // for(var i = 1;i <= config.num_tracts;++i) {
-            //     // load the tract
-            //     load_tract(config.get_json_file(i), function(err, mesh, res) {
-            //         scene.add(mesh);
-                    
-            //         config.num_fibers += res.coords.length;
-                    
-            //         config.tracts[res.name] = mesh;
-                    
-            //         // when all tracts are loaded, add the toggles to the side banner
-            //         if (Object.keys(config.tracts).length == config.num_tracts)
-            //             makeTractToggles();
-            //     });
-            // }
             
             renderer.autoClear = false;
             renderer.setSize(view.width(), view.height());
@@ -99,10 +85,10 @@ var LifeView = {
             animate_viewer();
         }
         
-        function load_tract(path, skip, cb) {
+        function load_tract(config, cb) {
             //console.log("loading tract "+path);
             //$scope.loading = true;
-            $.get(path, res => {
+            $.get(config.get_json_file, res => {
                 var name = res.name;
                 var color = [1, 1, 1];//res.color;
                 var bundle = res.coords;
@@ -111,7 +97,8 @@ var LifeView = {
                 var am = 0;
                 var col = new THREE.Color(.7, .7, .7);
                 
-                var buckets = [], categories = 100;
+                var buckets = [], categories = 100, verts = [];
+                
                 for (var i = 0; i < categories; i++) {
                     buckets.push(new THREE.LineBasicMaterial({
                         color: col,
@@ -122,39 +109,46 @@ var LifeView = {
                 
                 //bundle = [bundle[0]];
                 bundle.forEach(function(tract) {
-                    if ((++am) % skip != 0)
+                    if ((++am) % (config.skip || 1) != 0)
                         return;
                     if (tract[0] instanceof Array)
                         tract = tract[0];
                     
-                    var threads_pos = [];
+                    // TODO: Use actual weighting
+                    var weight = Math.random(), gidx = Math.floor(weight * categories);
+                    
+                    if (typeof verts[gidx] == 'undefined')
+                        verts[gidx] = [];
                     
                     var xs = tract[0];
                     var ys = tract[1];
                     var zs = tract[2];
                     
                     for(var i = 1;i < xs.length;++i) {
-                        threads_pos.push(xs[i-1]);
-                        threads_pos.push(ys[i-1]);
-                        threads_pos.push(zs[i-1]);
-                        threads_pos.push(xs[i]);
-                        threads_pos.push(ys[i]);
-                        threads_pos.push(zs[i]);
+                        verts[gidx].push(xs[i-1]);
+                        verts[gidx].push(ys[i-1]);
+                        verts[gidx].push(zs[i-1]);
+                        
+                        verts[gidx].push(xs[i]);
+                        verts[gidx].push(ys[i]);
+                        verts[gidx].push(zs[i]);
                     }
                     
-                    var verts = new Float32Array(threads_pos);
-                    var geometry = new THREE.BufferGeometry();
-                    
-                    geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
-                    
-                    // TODO: Use buckets[Math.floor(weight * categories)] instead of buckets[0]
-                    var mesh = new THREE.LineSegments( geometry, buckets[0] );
-                    mesh.rotation.x = -Math.PI/2;
-                    
-                    cb(null, mesh, res);
                 });
                 console.log("AMOUNT: " + am);
-
+                
+                verts.forEach((threads, idx) => {
+                    if (threads) {
+                        var geometry = new THREE.BufferGeometry();
+                        geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(threads), 3));
+                        
+                        var mesh = new THREE.LineSegments( geometry, buckets[idx] );
+                        mesh.rotation.x = -Math.PI/2;
+                        
+                        cb(null, mesh, res);
+                    }
+                });
+                
                 // now show bundle
                 // var vertices = new Float32Array(threads_pos);
                 // var geometry = new THREE.BufferGeometry();
