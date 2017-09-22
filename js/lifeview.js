@@ -145,11 +145,6 @@ var LifeView = {
                     }
                     
                 });
-                // for (var i = 0; i < hist.length; i++) {
-                //     if (i < 100 && hist[i] > 0) {
-                //         console.log(i, i.map(0, num_buckets, .5, 1), hist[i]);
-                //     }
-                // }
                 console.log("AMOUNT: " + bundle.length);
                 
                 verts.forEach((threads, idx) => {
