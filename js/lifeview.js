@@ -118,13 +118,8 @@ var LifeView = {
                 
                 //bundle = [bundle[0]];
                 bundle.forEach(function(tract, tidx) {
-                    // if ((++am) % (config.skip || 1) != 0)
-                    //     return;
                     if (tract[0] instanceof Array)
                         tract = tract[0];
-                    // am += tract[0].length;
-                    
-                    // TODO: Use actual weighting
                     
                     var gidx_c = weights[tidx][0].map(0, .15, 0, num_buckets);
                     var gidx = Math.min( Math.round(gidx_c), num_buckets - 1 );
