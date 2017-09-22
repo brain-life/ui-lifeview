@@ -20,9 +20,6 @@ Include script dependencies in your index.html file:
 
 <!-- Main Scripts -->
 <script type="text/javascript" src="node_modules/ui-lifeview/js/lifeview.js"></script>
-
-<!-- Dep Styles -->
-<link rel="stylesheet" type="text/css" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
 ```
 
 Include your main.js file inside index.html:
