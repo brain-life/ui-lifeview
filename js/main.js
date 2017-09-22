@@ -7,7 +7,8 @@
 $(function() {
     var config = {
         wf_api: '/api/wf',
-        jwt: localStorage.getItem('jwt')
+        jwt: localStorage.getItem('jwt'),
+        debug: true
     };
     
     if (!config.jwt)
