@@ -2,6 +2,10 @@
  * UI to display output tracts from LiFE, with weighted color maps
  */
 
+Number.prototype.map = function (in_min, in_max, out_min, out_max) {
+    return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 var LifeView = {
     
     /**
@@ -61,7 +65,8 @@ var LifeView = {
             renderer.autoClear = false;
             renderer.setSize(view.width(), view.height());
             view.append(renderer.domElement);
-
+            renderer.domElement.style.background = "darkgreen";
+            
             //use OrbitControls and make camera light follow camera position
             var controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.autoRotate = true;
@@ -86,36 +91,46 @@ var LifeView = {
         }
         
         function load_tract(config, cb) {
-            //console.log("loading tract "+path);
-            //$scope.loading = true;
             $.get(config.get_json_file, res => {
                 var name = res.name;
                 var color = [1, 1, 1];//res.color;
                 var bundle = res.coords;
+                var weights = (res.weights || []).filter(weight => weight[0] != 0);
 
                 // var threads_pos = [];
                 var am = 0;
                 var col = new THREE.Color(.7, .7, .7);
                 
-                var buckets = [], categories = config.bucket_categories || 100, verts = [];
+                var buckets = [], num_buckets = config.num_buckets || 100, verts = [];
                 
-                for (var i = 0; i < categories; i++) {
+                var lp01 = 0;
+                var hist = [];
+                
+                // create discrete buckets
+                for (var i = 0; i < num_buckets; i++) {
+                    
                     buckets.push(new THREE.LineBasicMaterial({
-                        color: new THREE.Color(Math.random(), Math.random(), Math.random()),
+                        color: new THREE.Color(1, 1, 1),//new THREE.Color(i.map(0, num_buckets, 0, 1), 0, 0),
                         transparent: true,
-                        opacity: .7//((i + 1) / categories + 1) / 2
+                        opacity: i.map(0, num_buckets, 0, 1)
                     }));
                 }
                 
                 //bundle = [bundle[0]];
-                bundle.forEach(function(tract) {
-                    if ((++am) % (config.skip || 1) != 0)
-                        return;
+                bundle.forEach(function(tract, tidx) {
+                    // if ((++am) % (config.skip || 1) != 0)
+                    //     return;
                     if (tract[0] instanceof Array)
                         tract = tract[0];
+                    // am += tract[0].length;
                     
                     // TODO: Use actual weighting
-                    var weight = Math.random(), gidx = Math.floor(weight * categories);
+                    
+                    var gidx_c = weights[tidx][0].map(0, .15, 0, num_buckets);
+                    var gidx = Math.min( Math.round(gidx_c), num_buckets - 1 );
+                    
+                    //|| 0, gidx = Math.floor(weight * num_buckets);
+                    hist[gidx] = (hist[gidx] || 0) + 1;
                     
                     if (typeof verts[gidx] == 'undefined')
                         verts[gidx] = [];
@@ -135,7 +150,12 @@ var LifeView = {
                     }
                     
                 });
-                console.log("AMOUNT: " + am);
+                // for (var i = 0; i < hist.length; i++) {
+                //     if (i < 100 && hist[i] > 0) {
+                //         console.log(i, i.map(0, num_buckets, .5, 1), hist[i]);
+                //     }
+                // }
+                console.log("AMOUNT: " + bundle.length);
                 
                 verts.forEach((threads, idx) => {
                     if (threads) {
