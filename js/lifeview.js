@@ -13,7 +13,7 @@ var LifeView = {
      * 
      * @param {String} config.selector -> Query selector for the element that will contain the tractview control
      * @param {Number} config.num_tracts -> Number of tracts to be loaded
-     * @param {Function} config.get_json_file -> Function that returns the path to the json file containing a tract, given the tract number
+     * @param {Function} config.url -> path to the json file containing a tract, given the tract number
      * 
      * (Optional)
      * @param {String} config.preview_scene_path -> Path to the scene to use which portrays the orientation of the brain
@@ -28,8 +28,8 @@ var LifeView = {
         
         if (typeof config.selector != 'string')
             throw "Error: config.selector not provided or not set to a string";
-        if (typeof config.get_json_file != 'string')
-            throw "Error: config.get_json_file not provided or not set to a string";
+        if (typeof config.url != 'string')
+            throw "Error: config.url not provided or not set to a string";
         
         var user_container = $(config.selector);
         if (user_container.length == 0)
@@ -91,7 +91,7 @@ var LifeView = {
         }
         
         function load_tract(config, cb) {
-            $.get(config.get_json_file, res => {
+            $.get(config.url, res => {
                 var name = res.name;
                 var color = [1, 1, 1];//res.color;
                 var bundle = res.coords;
