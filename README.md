@@ -46,7 +46,7 @@ $(function(){
 
 `selector` represents the query selector for the element that will contain the life viewer.
 
-`num_buckets` is the number of buckets to place weights in. If there are 100 buckets, then weight 1 gets placed in the bucket representing opacity 0, for weight 2, opacity 0.01, for 3, 0.02, and so on.
+`num_buckets` is the number of buckets to place weights in. If there are 100 buckets, then weights below .01 get placed in the bucket representing opacity 0, weights below .02 into that representing opacity .01, etc.
 
 `url` represents the url which links to the json file containing your tracts and weights. The json file should have the following format:
 
