@@ -1,6 +1,3 @@
-/**
- * UI to display output tracts from LiFE, with weighted color maps
- */
 
 Number.prototype.map = function (in_min, in_max, out_min, out_max) {
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -19,25 +16,23 @@ var LifeView = {
      * @param {String} config.preview_scene_path -> Path to the scene to use which portrays the orientation of the brain
      */
     init: function(config) {
-        if (!config)
-            throw "Error: No config provided";
+        if (!config) throw "Error: No config provided";
         // set up for later
         config.tracts = {};
         config.num_fibers = 0;
         config.LRtractNames = {};
         
-        if (typeof config.selector != 'string')
-            throw "Error: config.selector not provided or not set to a string";
-        if (typeof config.url != 'string')
-            throw "Error: config.url not provided or not set to a string";
+        if (typeof config.selector != 'string') throw "Error: config.selector not provided or not set to a string";
+        if (typeof config.url != 'string') throw "Error: config.url not provided or not set to a string";
         
         var user_container = $(config.selector);
-        if (user_container.length == 0)
-            throw `Error: Selector '${selector}' did not match any elements`;
+        if (user_container.length == 0) throw `Error: Selector '${selector}' did not match any elements`;
         
         populateHtml(user_container);
         
         var view = user_container.find("#viewer");
+        var statusview = user_container.find("#status");
+        statusview.html("<h2>Loading Data ...</h2>");
         
         init_viewer();
         
@@ -65,70 +60,77 @@ var LifeView = {
             renderer.autoClear = false;
             renderer.setSize(view.width(), view.height());
             view.append(renderer.domElement);
-            renderer.domElement.style.background = "darkgreen";
             
             //use OrbitControls and make camera light follow camera position
             var controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.autoRotate = true;
+            /*
             controls.addEventListener('change', function() {
                 //rotation changes
             });
+            */
             controls.addEventListener('start', function(){
-                //use interacting with control
                 controls.autoRotate = false;
             });
             function animate_viewer() {
                 controls.update();
-                
                 renderer.clear();
                 renderer.clearDepth();
                 renderer.render( scene, camera );
-
                 requestAnimationFrame( animate_viewer );
             }
-            
             animate_viewer();
         }
         
         function load_tract(config, cb) {
-            $.get(config.url, res => {
-                var name = res.name;
-                var color = [1, 1, 1];//res.color;
-                var bundle = res.coords;
-                var weights = (res.weights || []).filter(weight => weight[0] != 0);
-
-                // var threads_pos = [];
-                var am = 0;
-                var col = new THREE.Color(.7, .7, .7);
-                
-                var buckets = [], num_buckets = config.num_buckets || 100, verts = [];
-                
+            fetch(config.url).then(res=>res.json()).then(res=>{
+                //var name = res.name;
+                //var color = [1, 1, 1];
+                //var am = 0;
+                //var col = new THREE.Color(.7, .7, .7);
+                var materials = [];
+                var num_buckets = config.num_buckets || 128;
+                var verts = [];
                 var lp01 = 0;
                 var hist = [];
+
+                console.log("loaded");
+                console.dir(res);
+                statusview.html(res.name+" ("+res.coords.length+" tracts)");
                 
-                // create discrete buckets
                 for (var i = 0; i < num_buckets; i++) {
-                    
-                    buckets.push(new THREE.LineBasicMaterial({
-                        color: new THREE.Color(1, 1, 1),//new THREE.Color(i.map(0, num_buckets, 0, 1), 0, 0),
+                    //use opacity 
+                    materials.push(new THREE.LineBasicMaterial({
                         transparent: true,
+                        color: new THREE.Color(1, 1, 1),
                         opacity: i.map(0, num_buckets, 0, 1)
                     }));
+
+                    /*
+                    //use color
+                    var c = i.map(0, num_buckets, 0, 1);
+                    materials.push(new THREE.LineBasicMaterial({
+                        transparent: false,
+                        color: new THREE.Color(c,c,c),
+                    }));
+                    */
+
+                    hist[i] = 0;
                 }
                 
-                //bundle = [bundle[0]];
-                bundle.forEach(function(tract, tidx) {
-                    if (tract[0] instanceof Array)
-                        tract = tract[0];
+                res.coords.forEach(function(tract, tidx) {
+                    //if (tract[0] instanceof Array) tract = tract[0];
+                    //var gidx = res.weights[tidx].map(0, .1, 0, materials.length);
+                    var w = res.weights[tidx];
+                    var logw = Math.log(w);
+                    var gidx = Math.round(logw.map(-10, 0, 0, materials.length));
+                    if(gidx >= materials.length) gidx = materials.length - 1;
+
+                    if(gidx < 1) gidx = 0;
+
+                    hist[gidx]++;
                     
-                    var gidx_c = weights[tidx][0].map(0, .15, 0, num_buckets);
-                    var gidx = Math.min( Math.round(gidx_c), num_buckets - 1 );
-                    
-                    //|| 0, gidx = Math.floor(weight * num_buckets);
-                    hist[gidx] = (hist[gidx] || 0) + 1;
-                    
-                    if (typeof verts[gidx] == 'undefined')
-                        verts[gidx] = [];
+                    if (typeof verts[gidx] == 'undefined') verts[gidx] = []; //why does this happen?
                     
                     var xs = tract[0];
                     var ys = tract[1];
@@ -145,28 +147,31 @@ var LifeView = {
                     }
                     
                 });
-                console.log("AMOUNT: " + bundle.length);
+                console.dir(hist);
+                //console.log("AMOUNT: " + res.coords.length);
                 
                 verts.forEach((threads, idx) => {
                     if (threads) {
                         var geometry = new THREE.BufferGeometry();
                         geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(threads), 3));
                         
-                        var mesh = new THREE.LineSegments( geometry, buckets[idx] );
+                        var mesh = new THREE.LineSegments( geometry, materials[idx] );
                         mesh.rotation.x = -Math.PI/2;
                         
                         cb(null, mesh, res);
                     }
                 });
-                
+
+            }).catch(err=>{
+                statusview.html(err.toString());
             });
         }
         
         function populateHtml(element) {
             element.html(`
             <div class="container">
-                <!-- Main Connectome View -->
-                <div id="viewer" class="viewer"></div>
+                <div id="status"/>
+                <div id="viewer"/>
             </div>
             
             <style scoped>
@@ -175,10 +180,17 @@ var LifeView = {
                     height: 100%;
                     padding: 0px;
                 }
-                .viewer {
+                #viewer {
                     width:100%;
                     height: 100%;
-                    background:black;
+                }
+                #status {
+                    position: fixed;
+                    top: 0px;
+                    color: white;
+                    padding: 25px;
+                    font-family: Arial;
+                    opacity: 0.5;
                 }
             </style>
             `);
