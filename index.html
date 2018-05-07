@@ -70,14 +70,12 @@
             },
             success: data => {
                 var task = data.tasks[0];
-                console.dir(task);
-                var pathbase = task.instance_id+"/"+task._id;
-                if (subdir) pathbase += '/'+subdir;
-                pathbase += "/tracts";
+                var pathbase = "";
+                if (subdir) pathbase+=subdir+"/";
+                pathbase += "tracts";
                 LifeView.init({
                     selector: '#lifeview',
-                    //num_buckets: 10,
-                    url: config.wf_api+"/resource/download?r="+task.resource_id+"&p="+encodeURIComponent(pathbase+"/subsampledtracts.json")+"&at="+config.jwt
+                    url: config.wf_api+"/task/download/"+task._id+"?p="+encodeURIComponent(pathbase+"/subsampledtracts.json")+"&at="+config.jwt
                 });
             },
         });
