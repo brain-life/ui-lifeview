@@ -2,8 +2,6 @@
 <html>
 <head>
     <title>Life Viewer</title>
-    <!--<link href="//fonts.googleapis.com/css?family=Roboto" rel="stylesheet">-->
-    <!--<link rel="stylesheet" type="text/css" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />-->
 
     <style>
     * {
@@ -24,22 +22,21 @@
 </head>
 
 <body>
-    <div id="lifeview"/>
+    <div id="lifeview"></div>
 
     <!-- Dep Scripts -->
-    <script type="text/javascript" src="node_modules/jquery/dist/jquery.min.js"></script>
     <script type="text/javascript" src="node_modules/three/build/three.min.js"></script>
     <script type="text/javascript" src="node_modules/panning-orbit-controls/dist/panning-orbit-controls.js"></script>
     <script type="text/javascript" src="node_modules/three/examples/js/loaders/VTKLoader.js"></script>
-    <script type="text/javascript" src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="node_modules/vue/dist/vue.min.js"></script>
     
     <!-- Main Scripts -->
     <script type="text/javascript" src="js/lifeview.js"></script>
 
     <script>
     'use strict';
-    $(function() {
-        var config = {
+    window.addEventListener('load', function() {
+        let config = {
             wf_api: '/api/wf',
             jwt: localStorage.getItem('jwt'),
             debug: true
@@ -56,29 +53,32 @@
         if(url.hostname == "localhost") {
             config.wf_api = "https://dev1.soichi.us/api/wf";
             task_id = "59d2bdc2184ee962de7a4c81";
-
+            
             //task_id = "59cd64dd6d1b727c262d6dc4";
             //subdir = "59887d097d201b1a920ca2ac";
         }
         
-        //load task detail to load resource info
-        $.ajax({
-            beforeSend: xhr => xhr.setRequestHeader('Authorization', 'Bearer '+config.jwt),
-            url: config.wf_api+'/task',
-            data: {
-                find: JSON.stringify({ _id: task_id, })
-            },
-            success: data => {
-                var task = data.tasks[0];
-                var pathbase = "";
-                if (subdir) pathbase+=subdir+"/";
-                pathbase += "tracts";
-                LifeView.init({
-                    selector: '#lifeview',
-                    url: config.wf_api+"/task/download/"+task._id+"?p="+encodeURIComponent(pathbase+"/subsampledtracts.json")+"&at="+config.jwt
-                });
-            },
-        });
+        fetch(config.wf_api+'/task?find='+
+                encodeURIComponent(JSON.stringify({ _id: task_id })),
+            {headers: { 'Authorization': 'Bearer ' + config.jwt }})
+        .then(res => res.json())
+        .then(data => {
+            var task = data.tasks[0];
+            var pathbase = "";
+            if (subdir) pathbase+=subdir+"/";
+            pathbase += "tracts";
+            
+            new Vue({
+                el: "#lifeview",
+                components: [ "lifeview" ],
+                template: `<lifeview :url='"${config.wf_api +
+                    "/task/download/" +
+                    task._id +
+                    "?p="+encodeURIComponent(pathbase +
+                    "/subsampledtracts.json") +
+                    "&at="+config.jwt}"'></lifeview>`
+            });
+        }).catch(err => console.error);
     });
 
     </script>
