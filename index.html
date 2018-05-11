@@ -25,7 +25,6 @@
     <div id="lifeview"></div>
 
     <!-- Dep Scripts -->
-    <script type="text/javascript" src="node_modules/jquery/dist/jquery.min.js"></script>
     <script type="text/javascript" src="node_modules/three/build/three.min.js"></script>
     <script type="text/javascript" src="node_modules/panning-orbit-controls/dist/panning-orbit-controls.js"></script>
     <script type="text/javascript" src="node_modules/three/examples/js/loaders/VTKLoader.js"></script>
@@ -36,7 +35,7 @@
 
     <script>
     'use strict';
-    $(function() {
+    window.addEventListener('load', function() {
         let config = {
             wf_api: '/api/wf',
             jwt: localStorage.getItem('jwt'),
@@ -59,33 +58,27 @@
             //subdir = "59887d097d201b1a920ca2ac";
         }
         
-        //load task detail to load resource info
-        $.ajax({
-            beforeSend: xhr => xhr.setRequestHeader('Authorization', 'Bearer '+config.jwt),
-            url: config.wf_api+'/task',
-            data: {
-                find: JSON.stringify({ _id: task_id, })
-            },
-            success: data => {
-                var task = data.tasks[0];
-                var pathbase = "";
-                if (subdir) pathbase+=subdir+"/";
-                pathbase += "tracts";
-                
-                new Vue({
-                    el: "#lifeview",
-                    components: [ "lifeview" ],
-                    template: `<lifeview
-                        :url='"${config.wf_api +
-                            "/task/download/" +
-                            task._id +
-                            "?p="+encodeURIComponent(pathbase +
-                            "/subsampledtracts.json") +
-                            "&at="+config.jwt}"'></lifeview>`
-                });
-            },
-            error: console.error
-        });
+        fetch(config.wf_api+'/task?find='+
+                encodeURIComponent(JSON.stringify({ _id: task_id })),
+            {headers: { 'Authorization': 'Bearer ' + config.jwt }})
+        .then(res => res.json())
+        .then(data => {
+            var task = data.tasks[0];
+            var pathbase = "";
+            if (subdir) pathbase+=subdir+"/";
+            pathbase += "tracts";
+            
+            new Vue({
+                el: "#lifeview",
+                components: [ "lifeview" ],
+                template: `<lifeview :url='"${config.wf_api +
+                    "/task/download/" +
+                    task._id +
+                    "?p="+encodeURIComponent(pathbase +
+                    "/subsampledtracts.json") +
+                    "&at="+config.jwt}"'></lifeview>`
+            });
+        }).catch(err => console.error);
     });
 
     </script>
