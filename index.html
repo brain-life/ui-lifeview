@@ -2,8 +2,6 @@
 <html>
 <head>
     <title>Life Viewer</title>
-    <!--<link href="//fonts.googleapis.com/css?family=Roboto" rel="stylesheet">-->
-    <!--<link rel="stylesheet" type="text/css" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />-->
 
     <style>
     * {
@@ -24,14 +22,14 @@
 </head>
 
 <body>
-    <div id="lifeview"/>
+    <div id="lifeview"></div>
 
     <!-- Dep Scripts -->
     <script type="text/javascript" src="node_modules/jquery/dist/jquery.min.js"></script>
     <script type="text/javascript" src="node_modules/three/build/three.min.js"></script>
     <script type="text/javascript" src="node_modules/panning-orbit-controls/dist/panning-orbit-controls.js"></script>
     <script type="text/javascript" src="node_modules/three/examples/js/loaders/VTKLoader.js"></script>
-    <script type="text/javascript" src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="node_modules/vue/dist/vue.min.js"></script>
     
     <!-- Main Scripts -->
     <script type="text/javascript" src="js/lifeview.js"></script>
@@ -39,7 +37,7 @@
     <script>
     'use strict';
     $(function() {
-        var config = {
+        let config = {
             wf_api: '/api/wf',
             jwt: localStorage.getItem('jwt'),
             debug: true
@@ -56,7 +54,7 @@
         if(url.hostname == "localhost") {
             config.wf_api = "https://dev1.soichi.us/api/wf";
             task_id = "59d2bdc2184ee962de7a4c81";
-
+            
             //task_id = "59cd64dd6d1b727c262d6dc4";
             //subdir = "59887d097d201b1a920ca2ac";
         }
@@ -73,11 +71,20 @@
                 var pathbase = "";
                 if (subdir) pathbase+=subdir+"/";
                 pathbase += "tracts";
-                LifeView.init({
-                    selector: '#lifeview',
-                    url: config.wf_api+"/task/download/"+task._id+"?p="+encodeURIComponent(pathbase+"/subsampledtracts.json")+"&at="+config.jwt
+                
+                new Vue({
+                    el: "#lifeview",
+                    components: [ "lifeview" ],
+                    template: `<lifeview
+                        :url='"${config.wf_api +
+                            "/task/download/" +
+                            task._id +
+                            "?p="+encodeURIComponent(pathbase +
+                            "/subsampledtracts.json") +
+                            "&at="+config.jwt}"'></lifeview>`
                 });
             },
+            error: console.error
         });
     });
 

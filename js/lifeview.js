@@ -1,134 +1,168 @@
+'use strict';
 
-Number.prototype.map = function (in_min, in_max, out_min, out_max) {
-    return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
+(function() {
+//
 
-var LifeView = {
+let debounce;
+
+Vue.component('lifeview', {
+    props: [ 'url', 'buckets' ],
     
-    /**
-     * Inits the life viewer
-     * 
-     * @param {String} config.selector -> Query selector for the element that will contain the tractview control
-     * @param {Number} config.num_tracts -> Number of tracts to be loaded
-     * @param {Function} config.url -> path to the json file containing a tract, given the tract number
-     * 
-     * (Optional)
-     * @param {String} config.preview_scene_path -> Path to the scene to use which portrays the orientation of the brain
-     */
-    init: function(config) {
-        if (!config) throw "Error: No config provided";
-        // set up for later
-        config.tracts = {};
-        config.num_fibers = 0;
-        config.LRtractNames = {};
-        
-        if (typeof config.selector != 'string') throw "Error: config.selector not provided or not set to a string";
-        if (typeof config.url != 'string') throw "Error: config.url not provided or not set to a string";
-        
-        var user_container = $(config.selector);
-        if (user_container.length == 0) throw `Error: Selector '${selector}' did not match any elements`;
-        
-        populateHtml(user_container);
-        
-        var view = user_container.find("#viewer");
-        var statusview = user_container.find("#status");
-        statusview.html("<h2>Loading Data ...</h2>");
-        
-        init_viewer();
-        
-        function init_viewer() {
-            var renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
-            var scene = new THREE.Scene();
+    data() {
+        return {
+            scene: null,
+            controls: null,
+            camera: null,
+            renderer: null,
+            materials: [],
+            hist: [],
             
-            //camera
-            var camera = new THREE.PerspectiveCamera( 45, view.width() / view.height(), 1, 5000);
-            camera.position.z = 200;
+            loading: true,
+            status: null,
+            minThreshold: 0,
+            maxThreshold: 1,
             
-            //resize view
-            function resized() {
-                camera.aspect = view.width() / view.height();
-                camera.updateProjectionMatrix();
-                renderer.setSize(view.width(), view.height());
+            tinyBrainScene: null,
+            tinyBrainCam: null,
+            brainRenderer: null,
+        };
+    },
+    
+    mounted: function() {
+        let vm = this;
+        let viewbox = this.$refs.view.getBoundingClientRect();
+        let tinybrainbox = this.$refs.tinybrain.getBoundingClientRect();
+        
+        this.renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
+        this.brainRenderer = new THREE.WebGLRenderer({
+            alpha: true,
+            antialias: true
+        });
+        
+        this.scene = new THREE.Scene();
+        
+        //camera
+        this.camera = new THREE.PerspectiveCamera( 45, viewbox.width / viewbox.height, 1, 5000);
+        this.camera.position.z = 200;
+        
+        this.tinyBrainCam = new THREE.PerspectiveCamera(45, tinybrainbox.width / tinybrainbox.height, 1, 5000);
+        
+        //resize view
+        
+        window.addEventListener('resize', this.resized);
+        this.$refs.view.addEventListener('resize', this.resized);
+        
+        this.load_tracts(mesh => vm.scene.add(mesh));
+        this.load_tinybrain();
+        
+        this.renderer.autoClear = false;
+        this.renderer.setSize(viewbox.width, viewbox.height);
+        this.$refs.view.appendChild(this.renderer.domElement);
+        
+        this.brainRenderer.autoClear = false;
+        this.brainRenderer.setSize(tinybrainbox.width, tinybrainbox.height);
+        this.$refs.tinybrain.appendChild(this.brainRenderer.domElement);
+
+        //use OrbitControls and make camera light follow camera position
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.autoRotate = true;
+        
+        this.controls.addEventListener('start', function(){
+            vm.controls.autoRotate = false;
+        });
+        
+        this.animate_viewer();
+    },
+    
+    methods: {
+        animate_viewer: function() {
+            if (!this.loading) {
+                this.controls.enableKeys = this.allowKeyControls();
+                // update tiny brain
+                if (this.tinyBrainScene) {
+                    let pan = this.controls.getPanOffset();
+                    let pos3 = new THREE.Vector3(
+                        this.camera.position.x - pan.x,
+                        this.camera.position.y - pan.y,
+                        this.camera.position.z - pan.z
+                    ).normalize();
+                    this.tinyBrainCam.position.set(pos3.x * 10, pos3.y * 10, pos3.z * 10);
+                    this.tinyBrainCam.rotation.copy(this.camera.rotation);
+            
+                    this.brainlight.position.copy(this.tinyBrainCam.position);
+            
+                    this.brainRenderer.clear();
+                    this.brainRenderer.render(this.tinyBrainScene, this.tinyBrainCam);
+                }
+                
+                this.controls.update();
+                this.renderer.clear();
+                this.renderer.clearDepth();
+                this.renderer.render( this.scene, this.camera );
             }
-            $(window).on('resize', resized);
-            view.on('resize', resized);
             
-            load_tract(config, function(err, mesh, res) {
-                scene.add(mesh);
+            requestAnimationFrame( this.animate_viewer );
+        },
+
+        load_tinybrain: function() {
+            new THREE.ObjectLoader()
+            .load('models/brain.json', _scene => {
+                this.tinyBrainScene = _scene;
+                let brainMesh = this.tinyBrainScene.children[1],
+                    unnecessaryDirectionalLight = this.tinyBrainScene.children[2];
+
+                brainMesh.rotation.z += Math.PI / 2;
+                brainMesh.material = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
+
+                this.tinyBrainScene.remove(unnecessaryDirectionalLight);
+                this.tinyBrainScene.add(new THREE.AmbientLight(0x101010));
+
+                this.brainlight = new THREE.PointLight(0xffffff, 1);
+                this.brainlight.radius = 20;
+                this.brainlight.position.copy(this.tinyBrainCam.position);
+                this.tinyBrainScene.add(this.brainlight);
             });
-            
-            renderer.autoClear = false;
-            renderer.setSize(view.width(), view.height());
-            view.append(renderer.domElement);
-            
-            //use OrbitControls and make camera light follow camera position
-            var controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.autoRotate = true;
-            /*
-            controls.addEventListener('change', function() {
-                //rotation changes
-            });
-            */
-            controls.addEventListener('start', function(){
-                controls.autoRotate = false;
-            });
-            function animate_viewer() {
-                controls.update();
-                renderer.clear();
-                renderer.clearDepth();
-                renderer.render( scene, camera );
-                requestAnimationFrame( animate_viewer );
-            }
-            animate_viewer();
-        }
-        
-        function load_tract(config, cb) {
-            fetch(config.url).then(res=>res.json()).then(res=>{
+        },
+
+        load_tracts: function(cb) {
+            let vm = this;
+            fetch(this.url).then(res=>res.json()).then(res=>{
                 //var name = res.name;
                 //var color = [1, 1, 1];
                 //var am = 0;
                 //var col = new THREE.Color(.7, .7, .7);
-                var materials = [];
-                var num_buckets = config.num_buckets || 128;
+                vm.loading = false;
+                
+                var num_buckets = this.buckets || 128;
                 var verts = [];
                 var lp01 = 0;
-                var hist = [];
 
                 console.log("loaded");
                 console.dir(res);
-                statusview.html(res.name+" ("+res.coords.length+" tracts)");
-                
+                this.status = res.name+ " (" + res.coords.length + " tracts)";
+
                 for (var i = 0; i < num_buckets; i++) {
                     //use opacity 
-                    materials.push(new THREE.LineBasicMaterial({
+                    vm.materials.push(new THREE.LineBasicMaterial({
                         transparent: true,
                         color: new THREE.Color(1, 1, 1),
                         opacity: i.map(0, num_buckets, 0, 1)
                     }));
-
-                    /*
-                    //use color
-                    var c = i.map(0, num_buckets, 0, 1);
-                    materials.push(new THREE.LineBasicMaterial({
-                        transparent: false,
-                        color: new THREE.Color(c,c,c),
-                    }));
-                    */
-
-                    hist[i] = 0;
+                    
+                    vm.hist[i] = 0;
                 }
                 
                 res.coords.forEach(function(tract, tidx) {
                     //if (tract[0] instanceof Array) tract = tract[0];
-                    //var gidx = res.weights[tidx].map(0, .1, 0, materials.length);
+                    //var gidx = res.weights[tidx].map(0, .1, 0, vm.materials.length);
                     var w = res.weights[tidx];
                     var logw = Math.log(w);
-                    var gidx = Math.round(logw.map(-10, 0, 0, materials.length));
-                    if(gidx >= materials.length) gidx = materials.length - 1;
+                    var gidx = Math.round(logw.map(-10, 0, 0, vm.materials.length));
+                    if(gidx >= vm.materials.length) gidx = vm.materials.length - 1;
 
                     if(gidx < 1) gidx = 0;
 
-                    hist[gidx]++;
+                    vm.hist[gidx]++;
                     
                     if (typeof verts[gidx] == 'undefined') verts[gidx] = []; //why does this happen?
                     
@@ -147,54 +181,86 @@ var LifeView = {
                     }
                     
                 });
-                console.dir(hist);
-                //console.log("AMOUNT: " + res.coords.length);
+                console.dir(vm.hist);
                 
                 verts.forEach((threads, idx) => {
                     if (threads) {
                         var geometry = new THREE.BufferGeometry();
                         geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(threads), 3));
                         
-                        var mesh = new THREE.LineSegments( geometry, materials[idx] );
+                        var mesh = new THREE.LineSegments( geometry, vm.materials[idx] );
                         mesh.rotation.x = -Math.PI/2;
                         
-                        cb(null, mesh, res);
+                        cb(mesh);
                     }
                 });
 
-            }).catch(err=>{
-                statusview.html(err.toString());
-            });
-        }
+            }).catch(err => vm.$refs.view.innerHTML = err.toString() );
+        },
         
-        function populateHtml(element) {
-            element.html(`
-            <div class="container">
-                <div id="status"/>
-                <div id="viewer"/>
-            </div>
+        resized: function() {
+            let viewbox = this.$refs.view.getBoundingClientRect();
+            this.camera.aspect = viewbox.width / viewbox.height;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(viewbox.width, viewbox.height);
+        },
+        
+        allowKeyControls: function() {
+            let allow = true;
+            Object.keys(this.$refs)
+            .forEach(k => allow = allow && document.activeElement != this.$refs[k]);
+            return allow;
+        },
+        
+        thresholdBuckets: function() {
+            let minRange = Math.round(this.materials.length * this.minThreshold);
+            let maxRange = Math.round(this.materials.length * this.maxThreshold);
             
-            <style scoped>
-                .container {
-                    width: 100%;
-                    height: 100%;
-                    padding: 0px;
-                }
-                #viewer {
-                    width:100%;
-                    height: 100%;
-                }
-                #status {
-                    position: fixed;
-                    top: 0px;
-                    color: white;
-                    padding: 25px;
-                    font-family: Arial;
-                    opacity: 0.5;
-                }
-            </style>
-            `);
+            this.materials.forEach((material, idx) => material.visible = idx >= minRange && idx<= maxRange);
         }
-    }
+    },
     
-};
+    watch: {
+        'minThreshold': function() {
+            let vm = this;
+            let key = setTimeout(function(){
+                if (debounce == key) vm.thresholdBuckets();
+            }, 500);
+            debounce = key;
+        },
+        
+        'maxThreshold': function() {
+            let vm = this;
+            let key = setTimeout(function(){
+                if (debounce == key) vm.thresholdBuckets();
+            }, 500);
+            debounce = key;
+        }
+    },
+    
+    template:
+    `<div class="container" style="position:relative;display:inline-block;width:100%;height:100%;">
+        <div style="position:absolute;bottom:0;width:100px;height:100px;" ref="tinybrain"></div>
+        <div style="position:absolute; color: white; opacity: .5; font-family:Arial; font-size:17px; padding: 25px;">
+            <div v-if="loading">Loading...</div>
+            <div v-if="!loading">
+                <div v-if='status'>{{status}}</div>
+                <table v-if="!loading">
+                    <tr>
+                        <td>Threshold:</td>
+                        <td><input v-model='minThreshold' ref="minThreshold" type='number' min='0' :max='maxThreshold' step='.05' /></td>
+                        <td><input v-model='maxThreshold' ref="maxThreshold" type='number' :min='minThreshold' max='1' step='.05' /></td>
+                    </tr>
+                </table>
+                <div><input type='checkbox' v-model='controls.autoRotate' /> Rotate</div>
+            </div>
+        </div>
+        <div style="display:inline-block;width:100%;height:100%;background:#36c;" ref="view"></div>
+    </div>`
+});
+
+Number.prototype.map = function (in_min, in_max, out_min, out_max) {
+    return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+})();
