@@ -40,7 +40,7 @@
     'use strict';
     $(function() {
         var config = {
-            wf_api: '/api/wf',
+            wf_api: '/api/amaretti',
             jwt: localStorage.getItem('jwt'),
             debug: true
         };
@@ -54,7 +54,7 @@
 
         //for debugging
         if(url.hostname == "localhost") {
-            config.wf_api = "https://dev1.soichi.us/api/wf";
+            config.wf_api = "https://dev1.soichi.us/api/amaretti";
             task_id = "59d2bdc2184ee962de7a4c81";
 
             //task_id = "59cd64dd6d1b727c262d6dc4";
