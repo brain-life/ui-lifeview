@@ -75,7 +75,7 @@
                 pathbase += "tracts";
                 LifeView.init({
                     selector: '#lifeview',
-                    url: config.wf_api+"/task/download/"+task._id+"?p="+encodeURIComponent(pathbase+"/subsampledtracts.json")+"&at="+config.jwt
+                    url: config.wf_api+"/task/download/"+task._id+"/"+pathbase+"/subsampledtracts.json?at="+config.jwt
                 });
             },
         });
